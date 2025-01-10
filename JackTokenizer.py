@@ -1,6 +1,3 @@
-from PIL.ImageChops import constant
-from numpy.ma.core import append
-
 class JackTokenizer:
     def __init__(self, input_file):
         self.listOfTokens = self.claenFile(input_file)
@@ -24,21 +21,56 @@ class JackTokenizer:
 
     def claenFile(self, input_file):
         """
-        :param input_file:
-        :return a list of each word (token) in the file. Takes only the relevant words
+        This function takes a file and makes from it a list of tokens
+        :return: A list of tokens from the file
         """
-        # Open the file and list its contents
-        with open('filename.txt', 'r') as file:
-            raw_lines = file.readlines()  # Returns a list where each line is an item
+        keywords = {'class', 'constructor', 'function', 'method', 'field', 'static', 'var', 'int', 'char',
+                    'boolean', 'void', 'true', 'false', 'null', 'this', 'let', 'do', 'if', 'else', 'while', 'return'}
+        symbols = set('{}()[].,;+-*/&|<>=~')
+        tokens = []
 
-        clean_words = []
-        for line in raw_lines:
-            line = line.strip()  # Remove extra spaces from the ends
-            if line and not line.startswith("\\"):  # Ignore empty and comment lines
-                words = line.split()  # Split line into words
-                clean_words.extend(words)  # Add words to the clean_words list
+        with open(input_file, 'r') as file:
+            lines = file.readlines()
 
-        return clean_words
+        for line in lines:
+            line = line.strip()
+            if not line or line.startswith("//"):  # Ignore empty lines and comments
+                continue
+
+            # Split the line into "words" by spaces, but process each word for symbols and string constants
+            words = line.split()  # Split the line into words
+            for word in words:
+                current_token = ""
+                inside_string = False
+
+                for char in word:
+                    if inside_string:  # Handle string constants
+                        if char == '"':  # End of the string constant
+                            current_token += char
+                            tokens.append(current_token)  # Add the full string constant
+                            current_token = ""
+                            inside_string = False
+                        else:
+                            current_token += char
+                    elif char == '"':  # Start of a string constant
+                        if current_token:  # Add any existing token before the string starts
+                            tokens.append(current_token)
+                            current_token = ""
+                        current_token += char
+                        inside_string = True
+                    elif char in symbols:  # Handle symbols
+                        if current_token:  # Add the current token before the symbol
+                            tokens.append(current_token)
+                            current_token = ""
+                        tokens.append(char)  # Add the symbol as its own token
+                    else:  # Build the token (keywords, identifiers, numbers)
+                        current_token += char
+
+                if current_token:  # Add the last token in the word if it exists
+                    tokens.append(current_token)
+
+        return tokens
+
 
     def token_type(self):
         """
