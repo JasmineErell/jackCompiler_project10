@@ -98,18 +98,22 @@ class JackTokenizer:
         return symbol_type
 
 
-    def keyword(self):
-        """
-        The function takes the current token
-        :return - a constant of the token
-        """
-        keyword = self.currentToken.upper()
-        if keyword in { 'CLASS', 'METHOD', 'FUNCTION', 'CONSTRUCTOR', 'INT', 'BOOLEAN', 'CHAR', 'VOID', 'VAR', 'STATIC', 'FIELD', 'LET', 'DO', 'IF', 'ELSE', 'WHILE', 'RETURN', 'TRUE', 'FALSE',}:
-            return keyword
+    def keyWord(self):
+        return self.currentToken
 
     def symbol(self):
-        if self.token_type() == "SYMBOL":
-            return self.currentToken
+        return self.currentToken
+
+    def identifier(self):
+        return self.currentToken
+
+    def intVal(self):
+        return int(self.currentToken)
+
+    def stringVal(self):
+        return self.currentToken
+
+
 
 
 
