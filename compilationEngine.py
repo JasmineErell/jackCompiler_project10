@@ -1,6 +1,6 @@
 from JackTokenizer import JackTokenizer
 
-class compilationEngeen:
+class CompilationEngine:
     def _init_(self, input_file_path, output_path):
         """
         :param fileToRead:
