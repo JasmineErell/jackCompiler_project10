@@ -1,121 +1,164 @@
+import re
+
 class JackTokenizer:
     def __init__(self, input_file):
-        self.listOfTokens = self.claenFile(input_file)
-        self.tokenLength = len(self.listOfTokens)
-        self.currentToken = self.listOfTokens[0]
         self.input_file = input_file
-        self.currentTokenIndex = 0
 
+        # 1) Build the token list
+        self.listOfTokens = self.cleanAndTokenize(input_file)
+        self.tokenLength = len(self.listOfTokens)
 
-    def hasMoreTokens(self):
+        # 2) Set up currentToken, currentTokenIndex
+        if self.tokenLength == 0:
+            self.currentToken = None
+            self.currentTokenIndex = -1
+        else:
+            self.currentTokenIndex = 0
+            self.currentToken = self.listOfTokens[0]
+
+    def cleanAndTokenize(self, input_file):
         """
-               This function tells us if we have more tokens to read in the files
-               :return - True or false
-               """
-        return self.currentTokenIndex < self.tokenLength-1
-
-    def advance(self):
-        if self.hasMoreTokens():
-            self.currentTokenIndex +=1
-            self.currentToken = self.listOfTokens[self.currentTokenIndex]
-
-    def claenFile(self, input_file):
+        Reads the file, removes comments, then returns a list of Jack tokens by
+        scanning character-by-character.
         """
-        This function takes a file and makes from it a list of tokens
-        :return: A list of tokens from the file
+        text = self.remove_comments(input_file)
+        return self.tokenize(text)
+
+    def remove_comments(self, input_file):
         """
-        keywords = {'class', 'constructor', 'function', 'method', 'field', 'static', 'var', 'int', 'char',
-                    'boolean', 'void', 'true', 'false', 'null', 'this', 'let', 'do', 'if', 'else', 'while', 'return'}
+        Removes all // and /* */ comments, returning the cleaned text as a single string.
+        """
+        with open(input_file, 'r') as f:
+            text = f.read()
+
+        # 1) Remove all block comments (/* ... */) with a regex (non-greedy)
+        text = re.sub(r'/\*.*?\*/', '', text, flags=re.DOTALL)
+
+        # 2) Remove everything after // in each line
+        cleaned_lines = []
+        for line in text.split('\n'):
+            line = line.split('//')[0]
+            cleaned_lines.append(line)
+        text = '\n'.join(cleaned_lines)
+
+        return text
+
+    def tokenize(self, text):
+        """
+        Goes through the cleaned text character-by-character, splitting into tokens:
+        - Symbols
+        - String constants in quotes
+        - Integers, keywords, and identifiers
+        """
         symbols = set('{}()[].,;+-*/&|<>=~')
         tokens = []
 
-        with open(input_file, 'r') as file:
-            lines = file.readlines()
+        current_token = ''
+        inside_string = False
 
-        for line in lines:
-            line = line.strip()
-            if not line or line.startswith("//"):  # Ignore empty lines and comments
-                continue
+        i = 0
+        while i < len(text):
+            char = text[i]
 
-            # Split the line into "words" by spaces, but process each word for symbols and string constants
-            words = line.split()  # Split the line into words
-            for word in words:
-                current_token = ""
-                inside_string = False
-
-                for char in word:
-                    if inside_string:  # Handle string constants
-                        if char == '"':  # End of the string constant
-                            current_token += char
-                            tokens.append(current_token)  # Add the full string constant
-                            current_token = ""
-                            inside_string = False
-                        else:
-                            current_token += char
-                    elif char == '"':  # Start of a string constant
-                        if current_token:  # Add any existing token before the string starts
-                            tokens.append(current_token)
-                            current_token = ""
-                        current_token += char
-                        inside_string = True
-                    elif char in symbols:  # Handle symbols
-                        if current_token:  # Add the current token before the symbol
-                            tokens.append(current_token)
-                            current_token = ""
-                        tokens.append(char)  # Add the symbol as its own token
-                    else:  # Build the token (keywords, identifiers, numbers)
-                        current_token += char
-
-                if current_token:  # Add the last token in the word if it exists
+            if inside_string:
+                # We are inside a string constant
+                current_token += char
+                if char == '"':
+                    # End of string constant
                     tokens.append(current_token)
+                    current_token = ''
+                    inside_string = False
+                i += 1
+            else:
+                # Not inside a string
+                if char.isspace():
+                    # Whitespace -> end the current token (if any)
+                    if current_token:
+                        tokens.append(current_token)
+                        current_token = ''
+                    i += 1
+
+                elif char == '"':
+                    # Start of a string constant
+                    # If there's a token building, first finalize it
+                    if current_token:
+                        tokens.append(current_token)
+                        current_token = ''
+                    current_token = '"'
+                    inside_string = True
+                    i += 1
+
+                elif char in symbols:
+                    # Symbol is a separate token
+                    if current_token:
+                        tokens.append(current_token)
+                        current_token = ''
+                    tokens.append(char)  # the symbol itself
+                    i += 1
+
+                else:
+                    # Building up an identifier, keyword, or integer
+                    current_token += char
+                    i += 1
+
+        # If there's any leftover token after the loop
+        if current_token:
+            tokens.append(current_token)
 
         return tokens
 
+    def hasMoreTokens(self):
+        """
+        Returns True if there is a next token, False otherwise.
+        """
+        return (self.currentTokenIndex + 1) < self.tokenLength
+
+    def advance(self):
+        """
+        Moves to the next token, if it exists.
+        """
+        if self.hasMoreTokens():
+            self.currentTokenIndex += 1
+            self.currentToken = self.listOfTokens[self.currentTokenIndex]
 
     def token_type(self):
         """
-        Returns:
-            str: KEYWORD, SYMBOL, IDENTIFIER, INT_CONST, STRING_CONST as token types
+        Returns: 'KEYWORD', 'SYMBOL', 'IDENTIFIER', 'INT_CONST', or 'STRING_CONST'
         """
+        if self.currentToken is None:
+            return None
 
-        symbol_type = None
+        keywords = {
+            'class', 'constructor', 'function', 'method', 'field', 'static',
+            'var', 'int', 'char', 'boolean', 'void', 'true', 'false', 'null',
+            'this', 'let', 'do', 'if', 'else', 'while', 'return'
+        }
+        symbols = set('{}()[].,;+-*/&|<>=~')
+
         token = self.currentToken
-        if token in ('class', 'constructor', 'function', 'method',
-                     'field', 'static', 'var', 'int', 'char', 'if',
-                     'boolean', 'void', 'true', 'false', 'null',
-                     'this', 'let', 'do', 'return', 'else', 'while'):
-            symbol_type = 'KEYWORD'
-        elif token in '{}()[].,;+-*/&|<>=~':
-            symbol_type = 'SYMBOL'
+        if token in keywords:
+            return 'KEYWORD'
+        elif token in symbols:
+            return 'SYMBOL'
+        elif token.startswith('"') and token.endswith('"'):
+            return 'STRING_CONST'
         elif token.isdigit():
-            symbol_type = 'INT_CONST'
-        elif token.startswith('"'):
-            symbol_type = 'STRING_CONST'
-        elif (not token[0].isdigit()):
-            symbol_type = 'IDENTIFIER'
+            return 'INT_CONST'
         else:
-            raise SyntaxError('Invalid token : {}'.format(token))
-        return symbol_type
-
+            return 'IDENTIFIER'
 
     def keyWord(self):
-        return self.currentToken
+        return self.currentToken  # valid only if token_type == 'KEYWORD'
 
     def symbol(self):
-        return self.currentToken
+        return self.currentToken  # valid only if token_type == 'SYMBOL'
 
     def identifier(self):
-        return self.currentToken
+        return self.currentToken  # valid only if token_type == 'IDENTIFIER'
 
     def intVal(self):
-        return int(self.currentToken)
+        return int(self.currentToken)  # valid only if token_type == 'INT_CONST'
 
     def stringVal(self):
-        return self.currentToken
-
-
-
-
-
-
-
+        # Strip off the leading & trailing quotes
+        return self.currentToken.strip('"')

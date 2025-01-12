@@ -19,9 +19,9 @@ def main():
         analyzer.analyze()
         print("Analysis completed successfully")
     except Exception as e:
-        print(f"Error: {str(e)}")
+        print(f"Error during analysis: {str(e)}")
         sys.exit(1)
 
 
-if __name__ == "_main_":
+if __name__ == "__main__":  # Fixed the dunder main check
     main()
